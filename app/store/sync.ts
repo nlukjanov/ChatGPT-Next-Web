@@ -95,17 +95,15 @@ export const useSyncStore = createPersistStore(
       const client = this.getClient();
 
       try {
-        const remoteState = await client.get(config.username);
-        if (!remoteState || remoteState === "") {
+        const remoteStateRaw = await client.get(config.username);
+        if (!remoteStateRaw || remoteStateRaw === "") {
           await client.set(config.username, JSON.stringify(localState));
           console.log(
             "[Sync] Remote state is empty, using local state instead.",
           );
           return;
         } else {
-          const parsedRemoteState = JSON.parse(
-            await client.get(config.username),
-          ) as AppState;
+          const parsedRemoteState = JSON.parse(remoteStateRaw) as AppState;
           mergeAppState(localState, parsedRemoteState);
           setLocalAppState(localState);
         }
