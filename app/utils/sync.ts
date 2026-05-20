@@ -64,6 +64,27 @@ type StateMerger = {
 // we merge remote state to local state
 const MergeStates: StateMerger = {
   [StoreKey.Chat]: (localState, remoteState) => {
+    // merge tombstones — union, keep later timestamp per ID, prune after 30 days
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const localTombstones: Record<string, number> =
+      (localState as any).deletedSessionIds ?? {};
+    const remoteTombstones: Record<string, number> =
+      (remoteState as any).deletedSessionIds ?? {};
+    const mergedTombstones: Record<string, number> = { ...remoteTombstones };
+    for (const [id, ts] of Object.entries(localTombstones)) {
+      mergedTombstones[id] = Math.max(ts, mergedTombstones[id] ?? 0);
+    }
+    for (const id of Object.keys(mergedTombstones)) {
+      if (now - mergedTombstones[id] > THIRTY_DAYS) delete mergedTombstones[id];
+    }
+    (localState as any).deletedSessionIds = mergedTombstones;
+
+    // remove local sessions that are tombstoned
+    localState.sessions = localState.sessions.filter(
+      (s) => !mergedTombstones[s.id],
+    );
+
     // merge sessions
     const localSessions: Record<string, ChatSession> = {};
     localState.sessions.forEach((s) => (localSessions[s.id] = s));
@@ -71,6 +92,8 @@ const MergeStates: StateMerger = {
     remoteState.sessions.forEach((remoteSession) => {
       // skip empty chats
       if (remoteSession.messages.length === 0) return;
+      // skip tombstoned sessions
+      if (mergedTombstones[remoteSession.id]) return;
 
       const localSession = localSessions[remoteSession.id];
       if (!localSession) {
