@@ -103,9 +103,16 @@ export const useSyncStore = createPersistStore(
           );
           return;
         } else {
-          const parsedRemoteState = JSON.parse(remoteStateRaw) as AppState;
-          mergeAppState(localState, parsedRemoteState);
-          setLocalAppState(localState);
+          try {
+            const parsedRemoteState = JSON.parse(remoteStateRaw) as AppState;
+            mergeAppState(localState, parsedRemoteState);
+            setLocalAppState(localState);
+          } catch (e) {
+            console.warn(
+              "[Sync] Remote state is corrupt, overwriting with local state.",
+              e,
+            );
+          }
         }
       } catch (e) {
         console.log("[Sync] failed to get remote state", e);
