@@ -49,19 +49,25 @@ export function createUpstashClient(store: SyncStore) {
       });
 
       console.log("[Upstash] set key = ", key, res.status, res.statusText);
+      if (!res.ok) {
+        throw new Error(`[Upstash] set failed: ${res.status} ${res.statusText}`);
+      }
     },
 
     async get() {
       const chunkCount = Number(await this.redisGet(chunkCountKey));
       if (!Number.isInteger(chunkCount)) return;
 
-      const chunks = await Promise.all(
+      const fetchedChunks = await Promise.all(
         new Array(chunkCount)
           .fill(0)
           .map((_, i) => this.redisGet(chunkIndexKey(i))),
       );
-      console.log("[Upstash] get full chunks", chunks);
-      return chunks.join("");
+      if (fetchedChunks.some((c) => c === null || c === undefined)) {
+        throw new Error("[Upstash] incomplete data: one or more chunks missing");
+      }
+      console.log("[Upstash] get full chunks", fetchedChunks);
+      return fetchedChunks.join("");
     },
 
     async set(_: string, value: string) {
