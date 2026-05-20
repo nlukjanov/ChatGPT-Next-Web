@@ -227,6 +227,7 @@ const DEFAULT_CHAT_STATE = {
   sessions: [createEmptySession()],
   currentSessionIndex: 0,
   lastInput: "",
+  deletedSessionIds: {} as Record<string, number>,
 };
 
 export const useChatStore = createPersistStore(
@@ -358,11 +359,16 @@ export const useChatStore = createPersistStore(
         const restoreState = {
           currentSessionIndex: get().currentSessionIndex,
           sessions: get().sessions.slice(),
+          deletedSessionIds: { ...get().deletedSessionIds },
         };
 
         set(() => ({
           currentSessionIndex: nextIndex,
           sessions,
+          deletedSessionIds: {
+            ...get().deletedSessionIds,
+            [deletedSession.id]: Date.now(),
+          },
         }));
 
         showToast(
@@ -860,7 +866,7 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.3,
+    version: 3.4,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -923,6 +929,10 @@ export const useChatStore = createPersistStore(
           s.mask.modelConfig.compressModel = "";
           s.mask.modelConfig.compressProviderName = "";
         });
+      }
+
+      if (version < 3.4) {
+        (newState as any).deletedSessionIds = {};
       }
 
       return newState as any;
