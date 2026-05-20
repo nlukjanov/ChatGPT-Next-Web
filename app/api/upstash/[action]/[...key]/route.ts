@@ -49,10 +49,8 @@ async function handle(
     headers: {
       authorization: req.headers.get("authorization") ?? "",
     },
-    body: shouldNotHaveBody ? null : req.body,
+    body: shouldNotHaveBody ? null : await req.text(),
     method,
-    // @ts-ignore
-    duplex: "half",
   };
 
   console.log("[Upstash Proxy]", targetUrl, fetchOptions);
