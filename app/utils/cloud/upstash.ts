@@ -58,28 +58,61 @@ export function createUpstashClient(store: SyncStore) {
 
     async get() {
       const chunkCount = Number(await this.redisGet(chunkCountKey));
-      if (!Number.isInteger(chunkCount)) return;
+      if (!Number.isInteger(chunkCount) || chunkCount === 0) return;
 
-      const fetchedChunks = await Promise.all(
-        new Array(chunkCount)
-          .fill(0)
-          .map((_, i) => this.redisGet(chunkIndexKey(i))),
-      );
+      const commands = new Array(chunkCount)
+        .fill(0)
+        .map((_, i) => ["GET", chunkIndexKey(i)]);
+      const results = await this.redisPipeline(commands);
+      const fetchedChunks = results.map((r) => r.result);
       if (fetchedChunks.some((c) => c === null || c === undefined)) {
-        throw new Error("[Upstash] incomplete data: one or more chunks missing");
+        throw new Error(
+          "[Upstash] incomplete data: one or more chunks missing",
+        );
       }
-      console.log("[Upstash] get full chunks", fetchedChunks);
+      console.log("[Upstash] get chunks count", chunkCount);
       return fetchedChunks.join("");
     },
 
     async set(_: string, value: string) {
-      // upstash limit the max request size which is 1Mb for “Free” and “Pay as you go”
-      // so we need to split the data to chunks
       const allChunks = [...chunks(value)];
-      await Promise.all(
-        allChunks.map((chunk, i) => this.redisSet(chunkIndexKey(i), chunk)),
-      );
-      await this.redisSet(chunkCountKey, allChunks.length.toString());
+      const commands = [
+        ...allChunks.map((chunk, i) => ["SET", chunkIndexKey(i), chunk]),
+        ["SET", chunkCountKey, allChunks.length.toString()],
+      ];
+      await this.redisPipeline(commands);
+    },
+
+    async redisPipeline(commands: string[][]) {
+      const res = await fetch(this.pipelinePath(proxyUrl), {
+        method: "POST",
+        headers: {
+          ...this.headers(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(commands),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(
+          "[Upstash] pipeline failed: " + res.status + " " + body,
+        );
+      }
+      return (await res.json()) as Array<{ result: string | null }>;
+    },
+
+    pipelinePath(proxyUrl: string = "") {
+      if (proxyUrl.length > 0 && !proxyUrl.endsWith("/")) {
+        proxyUrl += "/";
+      }
+      const pathPrefix = "/api/upstash/pipeline";
+      try {
+        const u = new URL(proxyUrl + pathPrefix);
+        u.searchParams.append("endpoint", config.endpoint);
+        return u.toString();
+      } catch (e) {
+        return pathPrefix + "?endpoint=" + config.endpoint;
+      }
     },
 
     headers() {
