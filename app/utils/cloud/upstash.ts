@@ -50,8 +50,10 @@ export function createUpstashClient(store: SyncStore) {
 
       console.log("[Upstash] set key = ", key, res.status, res.statusText);
       if (!res.ok) {
-        throw new Error(`[Upstash] set failed: ${res.status} ${res.statusText}`);
+        const body = await res.text();
+        throw new Error(`[Upstash] set failed: ${res.status} ${res.statusText} ${body}`);
       }
+      await res.text();
     },
 
     async get() {
@@ -73,12 +75,11 @@ export function createUpstashClient(store: SyncStore) {
     async set(_: string, value: string) {
       // upstash limit the max request size which is 1Mb for “Free” and “Pay as you go”
       // so we need to split the data to chunks
-      let index = 0;
-      for await (const chunk of chunks(value)) {
-        await this.redisSet(chunkIndexKey(index), chunk);
-        index += 1;
-      }
-      await this.redisSet(chunkCountKey, index.toString());
+      const allChunks = [...chunks(value)];
+      await Promise.all(
+        allChunks.map((chunk, i) => this.redisSet(chunkIndexKey(i), chunk)),
+      );
+      await this.redisSet(chunkCountKey, allChunks.length.toString());
     },
 
     headers() {
@@ -87,9 +88,6 @@ export function createUpstashClient(store: SyncStore) {
       };
     },
     path(path: string, proxyUrl: string = "") {
-      if (!path.endsWith("/")) {
-        path += "/";
-      }
       if (path.startsWith("/")) {
         path = path.slice(1);
       }
