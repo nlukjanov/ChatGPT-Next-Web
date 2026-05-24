@@ -203,7 +203,6 @@ export class ChatGPTApi implements LLMApi {
     // o4 models: support temperature + streaming, but not top_p/penalties
     const isO4 = options.config.model.startsWith("o4");
     const isReasoningModel = isLegacyO1 || isO3 || isO4;
-    const isGpt5 = options.config.model.startsWith("gpt-5");
     if (isDalle3) {
       const prompt = getMessageTextContent(
         options.messages.slice(-1)?.pop() as any,
@@ -250,12 +249,6 @@ export class ChatGPTApi implements LLMApi {
         // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
       };
 
-      if (isGpt5 || isReasoningModel) {
-        // reasoning models and gpt-5 use max_completion_tokens
-        // (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-      }
-
       if (isReasoningModel) {
         // by default reasoning models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
@@ -266,10 +259,6 @@ export class ChatGPTApi implements LLMApi {
         });
       }
 
-      // add max_tokens to vision model
-      if (visionModel && !isReasoningModel && !isGpt5) {
-        requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
-      }
     }
 
     console.log("[Request] openai payload: ", requestPayload);
