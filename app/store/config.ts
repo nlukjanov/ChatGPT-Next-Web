@@ -64,18 +64,18 @@ export const DEFAULT_CONFIG = {
   models: DEFAULT_MODELS as any as LLMModel[],
 
   modelConfig: {
-    model: "gpt-4o-mini" as ModelType,
+    model: "gpt-5.4" as ModelType,
     providerName: "OpenAI" as ServiceProvider,
     temperature: 0.5,
     top_p: 1,
-    max_tokens: 4000,
+    max_tokens: 32768,
     presence_penalty: 0,
     frequency_penalty: 0,
     sendMemory: true,
-    historyMessageCount: 4,
-    compressMessageLengthThreshold: 1000,
-    compressModel: "",
-    compressProviderName: "",
+    historyMessageCount: 20,
+    compressMessageLengthThreshold: 4000,
+    compressModel: "gpt-5.4-nano" as ModelType,
+    compressProviderName: "OpenAI",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,
     size: "1024x1024" as ModelSize,
@@ -145,7 +145,7 @@ export const ModalConfigValidator = {
     return x as ModelType;
   },
   max_tokens(x: number) {
-    return limitNumber(x, 0, 512000, 1024);
+    return limitNumber(x, 0, 512000, 4096);
   },
   presence_penalty(x: number) {
     return limitNumber(x, -2, 2, 0);
@@ -195,7 +195,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.1,
+    version: 4.2,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -253,6 +253,20 @@ export const useAppConfig = createPersistStore(
           DEFAULT_CONFIG.modelConfig.compressModel;
         state.modelConfig.compressProviderName =
           DEFAULT_CONFIG.modelConfig.compressProviderName;
+      }
+
+      if (version < 4.2) {
+        state.modelConfig.model = DEFAULT_CONFIG.modelConfig.model;
+        state.modelConfig.providerName = DEFAULT_CONFIG.modelConfig.providerName;
+        state.modelConfig.compressModel =
+          DEFAULT_CONFIG.modelConfig.compressModel;
+        state.modelConfig.compressProviderName =
+          DEFAULT_CONFIG.modelConfig.compressProviderName;
+        state.modelConfig.max_tokens = DEFAULT_CONFIG.modelConfig.max_tokens;
+        state.modelConfig.historyMessageCount =
+          DEFAULT_CONFIG.modelConfig.historyMessageCount;
+        state.modelConfig.compressMessageLengthThreshold =
+          DEFAULT_CONFIG.modelConfig.compressMessageLengthThreshold;
       }
 
       return state as any;

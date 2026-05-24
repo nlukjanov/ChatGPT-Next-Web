@@ -61,10 +61,10 @@ export interface RequestPayload {
   }[];
   stream?: boolean;
   model: string;
-  temperature: number;
-  presence_penalty: number;
-  frequency_penalty: number;
-  top_p: number;
+  temperature?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  top_p?: number;
   max_tokens?: number;
   max_completion_tokens?: number;
 }
@@ -196,11 +196,13 @@ export class ChatGPTApi implements LLMApi {
     let requestPayload: RequestPayload | DalleRequestPayload;
 
     const isDalle3 = _isDalle3(options.config.model);
-    const isO1OrO3 =
-      options.config.model.startsWith("o1") ||
-      options.config.model.startsWith("o3") ||
-      options.config.model.startsWith("o4-mini");
-    const isGpt5 =  options.config.model.startsWith("gpt-5");
+    // o1 models: no temperature, no top_p, no penalties, no streaming
+    const isLegacyO1 = options.config.model.startsWith("o1");
+    // o3 models: support streaming + developer role, but not temperature/top_p/penalties
+    const isO3 = options.config.model.startsWith("o3");
+    // o4 models: support temperature + streaming, but not top_p/penalties
+    const isO4 = options.config.model.startsWith("o4");
+    const isReasoningModel = isLegacyO1 || isO3 || isO4;
     if (isDalle3) {
       const prompt = getMessageTextContent(
         options.messages.slice(-1)?.pop() as any,
@@ -222,47 +224,41 @@ export class ChatGPTApi implements LLMApi {
         const content = visionModel
           ? await preProcessImageContent(v.content)
           : getMessageTextContent(v);
-        if (!(isO1OrO3 && v.role === "system"))
+        if (!(isReasoningModel && v.role === "system"))
           messages.push({ role: v.role, content });
       }
 
-      // O1 not support image, tools (plugin in ChatGPTNextWeb) and system, stream, logprobs, temperature, top_p, n, presence_penalty, frequency_penalty yet.
+      // Reasoning models have restricted parameter support — omit unsupported params entirely
+      // rather than sending hardcoded values, which causes API errors.
+      // o1: no temperature, top_p, penalties, streaming
+      // o3: no temperature, top_p, penalties (streaming ok)
+      // o4: no top_p, penalties (temperature + streaming ok)
       requestPayload = {
         messages,
-        stream: options.config.stream,
+        stream: isLegacyO1 ? false : options.config.stream,
         model: modelConfig.model,
-        temperature: (!isO1OrO3 && !isGpt5) ? modelConfig.temperature : 1,
-        presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
-        frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
-        top_p: !isO1OrO3 ? modelConfig.top_p : 1,
+        // temperature: omit for o1/o3; include for o4, gpt-5, and standard models
+        ...(!isLegacyO1 && !isO3 && { temperature: modelConfig.temperature }),
+        // top_p and penalties: omit for all reasoning models
+        ...(!isReasoningModel && {
+          presence_penalty: modelConfig.presence_penalty,
+          frequency_penalty: modelConfig.frequency_penalty,
+          top_p: modelConfig.top_p,
+        }),
         // max_tokens: Math.max(modelConfig.max_tokens, 1024),
         // Please do not ask me why not send max_tokens, no reason, this param is just shit, I dont want to explain anymore.
       };
 
-      if (isGpt5) {
-  	// Remove max_tokens if present
-  	delete requestPayload.max_tokens;
-  	// Add max_completion_tokens (or max_completion_tokens if that's what you meant)
-  	requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-
-      } else if (isO1OrO3) {
-        // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
+      if (isReasoningModel) {
+        // by default reasoning models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
         // (https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/reasoning?tabs=python-secure#markdown-output)
         requestPayload["messages"].unshift({
           role: "developer",
           content: "Formatting re-enabled",
         });
-
-        // o1/o3 uses max_completion_tokens to control the number of tokens (https://platform.openai.com/docs/guides/reasoning#controlling-costs)
-        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
       }
 
-
-      // add max_tokens to vision model
-      if (visionModel && !isO1OrO3 && ! isGpt5) {
-        requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
-      }
     }
 
     console.log("[Request] openai payload: ", requestPayload);
