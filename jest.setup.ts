@@ -2,11 +2,16 @@
 import "@testing-library/jest-dom";
 import { jest } from "@jest/globals";
 
-global.fetch = jest.fn(() =>
+global.fetch = jest.fn((url?: any) =>
   Promise.resolve({
     ok: true,
     status: 200,
-    json: () => Promise.resolve([]),
+    // the prompt store fetches prompts.json during rehydration and
+    // expects language keys; everything else gets an empty array
+    json: () =>
+      Promise.resolve(
+        String(url).includes("prompts.json") ? { en: [], cn: [], tw: [] } : [],
+      ),
     headers: new Headers(),
     redirected: false,
     statusText: "OK",
