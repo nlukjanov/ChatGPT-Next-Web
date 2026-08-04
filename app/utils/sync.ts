@@ -30,6 +30,37 @@ export type GetStoreState<T> = T extends { getState: () => infer U }
   ? NonFunctionFields<U>
   : never;
 
+// fields that must never be synced: they are derived from code defaults
+// or fetched from /api/config on each page load, so syncing them lets a
+// stale remote blob erase newer built-in/server-provided models
+const UNSYNCED_FIELDS: Partial<Record<StoreKey, string[]>> = {
+  [StoreKey.Config]: ["models"],
+  [StoreKey.Access]: [
+    // DANGER_CONFIG keys served by /api/config
+    "needCode",
+    "hideUserApiKey",
+    "hideBalanceQuery",
+    "disableGPT4",
+    "disableFastLink",
+    "customModels",
+    "defaultModel",
+    "visionModels",
+  ],
+};
+
+export function omitUnsyncedFields<T extends object>(
+  key: StoreKey,
+  state: T,
+): T {
+  const ret: any = { ...state };
+  for (const field of UNSYNCED_FIELDS[key] ?? []) {
+    delete ret[field];
+  }
+  // persist-middleware metadata, not user data
+  delete ret._hasHydrated;
+  return ret as T;
+}
+
 const LocalStateSetters = {
   [StoreKey.Chat]: useChatStore.setState,
   [StoreKey.Access]: useAccessStore.setState,
@@ -39,11 +70,31 @@ const LocalStateSetters = {
 } as const;
 
 const LocalStateGetters = {
-  [StoreKey.Chat]: () => getNonFunctionFileds(useChatStore.getState()),
-  [StoreKey.Access]: () => getNonFunctionFileds(useAccessStore.getState()),
-  [StoreKey.Config]: () => getNonFunctionFileds(useAppConfig.getState()),
-  [StoreKey.Mask]: () => getNonFunctionFileds(useMaskStore.getState()),
-  [StoreKey.Prompt]: () => getNonFunctionFileds(usePromptStore.getState()),
+  [StoreKey.Chat]: () =>
+    omitUnsyncedFields(
+      StoreKey.Chat,
+      getNonFunctionFileds(useChatStore.getState()),
+    ),
+  [StoreKey.Access]: () =>
+    omitUnsyncedFields(
+      StoreKey.Access,
+      getNonFunctionFileds(useAccessStore.getState()),
+    ),
+  [StoreKey.Config]: () =>
+    omitUnsyncedFields(
+      StoreKey.Config,
+      getNonFunctionFileds(useAppConfig.getState()),
+    ),
+  [StoreKey.Mask]: () =>
+    omitUnsyncedFields(
+      StoreKey.Mask,
+      getNonFunctionFileds(useMaskStore.getState()),
+    ),
+  [StoreKey.Prompt]: () =>
+    omitUnsyncedFields(
+      StoreKey.Prompt,
+      getNonFunctionFileds(usePromptStore.getState()),
+    ),
 } as const;
 
 export type AppState = {
@@ -160,8 +211,14 @@ export function setLocalAppState(appState: AppState) {
 export function mergeAppState(localState: AppState, remoteState: AppState) {
   Object.keys(localState).forEach(<T extends keyof AppState>(k: string) => {
     const key = k as T;
-    const localStoreState = localState[key];
-    const remoteStoreState = remoteState[key];
+    // strip unsynced fields from both sides so blobs written by older
+    // clients cannot reinject stale models/server config into local state
+    const localStoreState = omitUnsyncedFields(key, localState[key]);
+    const remoteStoreState = remoteState[key]
+      ? omitUnsyncedFields(key, remoteState[key])
+      : undefined;
+    localState[key] = localStoreState;
+    if (!remoteStoreState) return;
     MergeStates[key](localStoreState, remoteStoreState);
   });
 
@@ -179,10 +236,10 @@ export function mergeWithUpdate<T extends { lastUpdateTime?: number }>(
   const remoteUpdateTime = remoteState.lastUpdateTime ?? 1;
 
   if (localUpdateTime < remoteUpdateTime) {
-    merge(remoteState, localState);
-    return { ...remoteState };
-  } else {
+    // remote is newer: apply remote on top of local, mutating the object
+    // that mergeAppState/setLocalAppState actually use
     merge(localState, remoteState);
-    return { ...localState };
   }
+  // local is newer or equal: keep local as-is
+  return localState;
 }
