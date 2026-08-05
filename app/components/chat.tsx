@@ -101,6 +101,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   CHAT_PAGE_SIZE,
+  DEFAULT_MODELS,
   DEFAULT_TTS_ENGINE,
   ModelProvider,
   Path,
@@ -578,9 +579,14 @@ export function ChatActions(props: {
     }
 
     // if current model is not available
-    // switch to first available model
+    // switch to first available model, but never away from a built-in
+    // model: it can only be transiently absent (e.g. while a stale sync
+    // blob degrades the model list) and switching would persist the loss
     const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    if (isUnavailableModel && models.length > 0) {
+    const isBuiltinModel = DEFAULT_MODELS.some(
+      (m) => m.name === currentModel,
+    );
+    if (isUnavailableModel && !isBuiltinModel && models.length > 0) {
       // show next model to default model if exist
       let nextModel = models.find((model) => model.isDefault) || models[0];
       chatStore.updateTargetSession(session, (session) => {
