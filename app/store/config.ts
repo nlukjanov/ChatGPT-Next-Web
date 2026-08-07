@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG = {
   models: DEFAULT_MODELS as any as LLMModel[],
 
   modelConfig: {
-    model: "gpt-5.4-nano" as ModelType,
+    model: "gpt-5.6-luna" as ModelType,
     providerName: "OpenAI" as ServiceProvider,
     temperature: 0.5,
     top_p: 1,
@@ -74,7 +74,7 @@ export const DEFAULT_CONFIG = {
     sendMemory: true,
     historyMessageCount: 20,
     compressMessageLengthThreshold: 4000,
-    compressModel: "gpt-5.4-nano" as ModelType,
+    compressModel: "gpt-5.6-luna" as ModelType,
     compressProviderName: "OpenAI",
     enableInjectSystemPrompts: true,
     template: config?.template ?? DEFAULT_INPUT_TEMPLATE,

@@ -420,7 +420,7 @@ You are an AI assistant with access to system tools. Your role is to help users 
    
 `;
 
-export const SUMMARIZE_MODEL = "gpt-5.4-nano";
+export const SUMMARIZE_MODEL = "gpt-5.6-luna";
 export const GEMINI_SUMMARIZE_MODEL = "gemini-pro";
 export const DEEPSEEK_SUMMARIZE_MODEL = "deepseek-chat";
 
@@ -476,6 +476,12 @@ export const KnowledgeCutOffDate: Record<string, string> = {
   "gpt-5.4-nano": "2026-01",
   "gpt-5.4-mini-2026-03-17": "2026-01",
   "gpt-5.4-nano-2026-03-17": "2026-01",
+  "gpt-5.5": "2025-12",
+  "gpt-5.5-pro": "2025-12",
+  "gpt-5.6": "2026-02",
+  "gpt-5.6-sol": "2026-02",
+  "gpt-5.6-terra": "2026-02",
+  "gpt-5.6-luna": "2026-02",
   "codex-mini-latest": "2025-04",
   o1: "2023-10",
   "o1-2024-12-17": "2023-10",
@@ -595,6 +601,12 @@ const openaiModels = [
   "gpt-5.4-nano",
   "gpt-5.4-mini-2026-03-17",
   "gpt-5.4-nano-2026-03-17",
+  "gpt-5.5",
+  "gpt-5.5-pro",
+  "gpt-5.6",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "dall-e-3",
   "codex-mini-latest",
   "o1",
