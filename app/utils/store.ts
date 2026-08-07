@@ -21,10 +21,13 @@ type MakeUpdater<T> = {
   setHasHydrated: (state: boolean) => void;
 };
 
-type SetStoreState<T> = (
-  partial: T | Partial<T> | ((state: T) => T | Partial<T>),
-  replace?: boolean | undefined,
-) => void;
+type SetStoreState<T> = {
+  (
+    partial: T | Partial<T> | ((state: T) => T | Partial<T>),
+    replace?: false,
+  ): void;
+  (state: T | ((state: T) => T), replace: true): void;
+};
 
 export function createPersistStore<T extends object, M>(
   state: T,
