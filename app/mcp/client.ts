@@ -50,6 +50,6 @@ export async function listTools(client: Client): Promise<ListToolsResponse> {
 export async function executeRequest(
   client: Client,
   request: McpRequestMessage,
-) {
-  return client.request(request, z.any());
+): Promise<unknown> {
+  return client.request(request, z.any() as any);
 }
