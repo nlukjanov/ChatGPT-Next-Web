@@ -202,6 +202,8 @@ export class ChatGPTApi implements LLMApi {
     const isO3 = options.config.model.startsWith("o3");
     // o4 models: support temperature + streaming, but not top_p/penalties
     const isO4 = options.config.model.startsWith("o4");
+    // gpt-5.6-luna: only supports the default temperature (1), custom values are rejected
+    const isGpt56Luna = options.config.model.startsWith("gpt-5.6-luna");
     const isReasoningModel = isLegacyO1 || isO3 || isO4;
     if (isDalle3) {
       const prompt = getMessageTextContent(
@@ -237,8 +239,10 @@ export class ChatGPTApi implements LLMApi {
         messages,
         stream: isLegacyO1 ? false : options.config.stream,
         model: modelConfig.model,
-        // temperature: omit for o1/o3; include for o4, gpt-5, and standard models
-        ...(!isLegacyO1 && !isO3 && { temperature: modelConfig.temperature }),
+        // temperature: omit for o1/o3/gpt-5.6-luna; include for o4, gpt-5, and standard models
+        ...(!isLegacyO1 &&
+          !isO3 &&
+          !isGpt56Luna && { temperature: modelConfig.temperature }),
         // top_p and penalties: omit for all reasoning models
         ...(!isReasoningModel && {
           presence_penalty: modelConfig.presence_penalty,
