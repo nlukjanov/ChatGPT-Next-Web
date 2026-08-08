@@ -583,9 +583,7 @@ export function ChatActions(props: {
     // model: it can only be transiently absent (e.g. while a stale sync
     // blob degrades the model list) and switching would persist the loss
     const isUnavailableModel = !models.some((m) => m.name === currentModel);
-    const isBuiltinModel = DEFAULT_MODELS.some(
-      (m) => m.name === currentModel,
-    );
+    const isBuiltinModel = DEFAULT_MODELS.some((m) => m.name === currentModel);
     if (isUnavailableModel && !isBuiltinModel && models.length > 0) {
       // show next model to default model if exist
       let nextModel = models.find((model) => model.isDefault) || models[0];
@@ -992,7 +990,7 @@ export function ShortcutKeyModal(props: { onClose: () => void }) {
   );
 }
 
-function _Chat() {
+function ChatInner() {
   type RenderMessage = ChatMessage & { preview?: boolean };
 
   const chatStore = useChatStore();
@@ -1824,8 +1822,7 @@ function _Chat() {
                                       10,
                                     );
                                     let newContent:
-                                      | string
-                                      | MultimodalContent[] = newMessage;
+                                      string | MultimodalContent[] = newMessage;
                                     const images = getMessageImages(message);
                                     if (images.length > 0) {
                                       newContent = [
@@ -2173,5 +2170,5 @@ function _Chat() {
 export function Chat() {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  return <_Chat key={session.id}></_Chat>;
+  return <ChatInner key={session.id}></ChatInner>;
 }
